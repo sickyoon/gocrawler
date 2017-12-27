@@ -6,20 +6,26 @@ type Scheduler struct {
 	numWorkers int
 }
 
-// NewScheduler -
-func NewScheduler(numWorkers int, bufSize int) *Scheduler {
+// New -
+func New(numWorkers int, bufSize int) *Scheduler {
 	// share memory by communicating
 	reqCh := make(chan Request, bufSize)
 	return &Scheduler{
-		reqCh: reqCh,
+		reqCh:      reqCh,
+		numWorkers: numWorkers,
 	}
 }
 
 // StartWorkers -
-func (s *Scheduler) StartWorkers() {
+func (s *Scheduler) StartWorkers() error {
 	for i := 0; i < s.numWorkers; i++ {
-		go NewWorker(i, s.reqCh)
+		w, err := NewWorker(i, s.reqCh)
+		if err != nil {
+			return err
+		}
+		go w.Start()
 	}
+	return nil
 }
 
 // Schedule -

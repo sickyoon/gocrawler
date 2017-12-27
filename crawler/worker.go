@@ -1,7 +1,7 @@
 package crawler
 
 import (
-	"io/ioutil"
+	"log"
 	"net"
 	"net/http"
 	"net/http/cookiejar"
@@ -21,12 +21,13 @@ type Worker struct {
 
 // NewWorker -
 func NewWorker(id int, reqCh chan Request) (*Worker, error) {
+
+	// TODO: create cookiejar
 	cookieJar, err := cookiejar.New(&cookiejar.Options{PublicSuffixList: publicsuffix.List})
 	if err != nil {
 		return nil, err
 	}
 
-	// TODO: create cookiejar
 	// TODO: create client
 	client := &http.Client{
 		Transport: &http.Transport{
@@ -44,6 +45,7 @@ func NewWorker(id int, reqCh chan Request) (*Worker, error) {
 		Jar:           cookieJar,
 		Timeout:       time.Duration(viper.GetInt("client_timeout")) * time.Second,
 	}
+
 	return &Worker{
 		id:        id,
 		reqCh:     reqCh,
@@ -54,10 +56,15 @@ func NewWorker(id int, reqCh chan Request) (*Worker, error) {
 
 // Start -
 func (w *Worker) Start() {
+
+	log.Printf("starting worker %d", w.id)
+
 	for {
 		select {
 		case req := <-w.reqCh:
-			w.query(req)
+			if err := w.query(req); err != nil {
+				// TODO: stop and fail or continue?
+			}
 		}
 	}
 }
@@ -73,10 +80,9 @@ func (w *Worker) query(creq Request) error {
 		return err
 	}
 	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
+	err = creq.Process(w.reqCh, resp.Body)
 	if err != nil {
 		return err
 	}
-	creq.Process(w.reqCh, body)
 	return nil
 }
